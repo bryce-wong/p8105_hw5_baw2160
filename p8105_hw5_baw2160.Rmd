@@ -31,13 +31,25 @@ reading_subjects = function(filename){
 }
 
 all_subjects = bind_rows(
-  reading_subjects(file_names[1]),
-  reading_subjects(file_names[2]),
-  reading_subjects(file_names[3])
+  map(.x = file_names, ~ reading_subjects(.x))
 ) %>% 
   select(subj_name, everything())
 ```
 
-
 * Tidy the result; manipulate file names to include control arm and subject ID, make sure weekly observations are “tidy”, and do any other tidying that’s necessary
+
+```{r}
+tidy_data = all_subjects %>% 
+  gather(key = week, value = observation, week_1:week_8) %>% 
+  mutate(subj_name = str_replace(subj_name, "./data/", ""),
+         subj_name = str_replace(subj_name, ".csv", ""),
+         week = str_replace(week, "week_", ""),
+         week = as.numeric(week)
+         ) %>%
+  separate(subj_name, into = c("study_arm", "subj_id"), sep = "_") %>% 
+  mutate(
+    subj_id = as.numeric(subj_id)
+  )
+```
+
 * Make a spaghetti plot showing observations on each subject over time, and comment on differences between groups.
