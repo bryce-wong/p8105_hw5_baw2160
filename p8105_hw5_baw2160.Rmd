@@ -9,6 +9,8 @@ output: github_document
 library(tidyverse)
 ```
 
+### Problem 1: 
+
 Create a tidy dataframe containing data from all participants, including the subject ID, arm, and observations over time:
 
 * Start with a dataframe containing all file names; the list.files function will help
@@ -66,12 +68,32 @@ tidy_data %>%
   )
 ```
 
-Describe the raw data. Create a city_state variable (e.g. “Baltimore, MD”) and then summarize within cities to obtain the total number of homicides and the number of unsolved homicides (those for which the disposition is “Closed without arrest” or “Open/No arrest”).
+### Problem 2:
 
 ```{r}
- df = read.csv("link of raw data")
+ hom_data = read_csv("https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv")
 ```
 
+Describe the raw data:
+The homicide dataset gives us information about criminal homicides over the past decade in 50 of the largest American cities. Each observation is a unique homicide, with `r dim(hom_data)[1]` total observations and `r dim(hom_data)[2]` variables.
+
+Variables include:
+`r names(hom_data)`
+
+The data seems pretty tidy, with each level of a variable part of one dataframe column.
+
+Create a city_state variable (e.g. “Baltimore, MD”) and then summarize within cities to obtain the total number of homicides and the number of unsolved homicides (those for which the disposition is “Closed without arrest” or “Open/No arrest”).
+
+```{r}
+hom_data = hom_data %>% 
+  mutate(
+    city_state = str_c(city, ", ", state)
+  ) %>% 
+  group_by(city_state, disposition) %>% 
+  summarize(
+    n = n()
+  ) 
+```
 
 For the city of Baltimore, MD, use the prop.test function to estimate the proportion of homicides that are unsolved; save the output of prop.test as an R object, apply the broom::tidy to this object and pull the estimated proportion and confidence intervals from the resulting tidy dataframe.
 
