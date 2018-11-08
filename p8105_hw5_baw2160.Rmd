@@ -109,18 +109,18 @@ hom_data_summed = hom_data %>%
 baltimore = hom_data_summed %>% 
   filter(city_state == "Baltimore, MD")  
 
-prop_unsolved = prop.test(x = baltimore$total_unsolved, n = baltimore$total_homicides)
+prop_unsolved_balt = prop.test(x = baltimore$total_unsolved, n = baltimore$total_homicides)
 
-prop_unsolved_tidy = broom::tidy(prop_unsolved) %>% 
+prop_unsolved_balt_tidy = broom::tidy(prop_unsolved_balt) %>% 
   select(estimate, conf.low, conf.high)
 ```
 
 * Now run prop.test for each of the cities in your dataset, and extract both the proportion of unsolved homicides and the confidence interval for each. Do this within a “tidy” pipeline, making use of purrr::map, purrr::map2, list columns and  unnest as necessary to create a tidy dataframe with estimated proportions and CIs for each city.
 
 ```{r}
-props_function = function(dataframe, city_name){
-  city = dataframe %>% 
-  filter(city_state == city_name)  
+props_function = function(name){
+  city = hom_data_summed %>% 
+  filter(city_state == name)  
 
   prop_unsolved = prop.test(x = city$total_unsolved, n = city$total_homicides)
 
@@ -130,12 +130,28 @@ props_function = function(dataframe, city_name){
   prop_unsolved_tidy
 }
 
-props_all_cities = hom_data_summed %>% 
+hom_data_summed_props = hom_data_summed %>% 
+  filter(!is.na(total_unsolved)) %>% 
   mutate(
-    prop_unsolved = map2(.x = ., .y = city_state, ~props_function(dataframe = .x, city_name = .y))
+    unsolved = map(.x = city_state, ~props_function(name = .x))
     ) %>% 
-  unnest 
+  unnest() %>% 
+  select(city_state, estimate, conf.low, conf.high)
 ```
 
+* Create a plot that shows the estimates and CIs for each city – check out geom_errorbar for a way to add error bars based on the upper and lower limits. Organize cities according to the proportion of unsolved homicides.
 
-Create a plot that shows the estimates and CIs for each city – check out geom_errorbar for a way to add error bars based on the upper and lower limits. Organize cities according to the proportion of unsolved homicides.
+```{r}
+hom_data_summed_props %>% 
+  ungroup() %>% 
+  mutate(city_state = fct_reorder(city_state, estimate)) %>% 
+  ggplot(aes(x = city_state, y = estimate)) + 
+  geom_point() +
+  geom_errorbar(aes(x = city_state, ymin = conf.high, ymax = conf.low)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 6)) +
+  labs(
+    title = "Proportion of unsolved homicides per city",
+    x = "City",
+    y = "Proportion of unsolved homicides"
+  )
+```
