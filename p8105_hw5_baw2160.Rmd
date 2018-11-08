@@ -23,7 +23,7 @@ file_names = str_c(data_prefix, get_names)
 
 * Iterate over file names and read in data for each subject using purrr::map and saving the result as a new variable in the dataframe
 
-```{r}
+```{r, message = FALSE}
 reading_subjects = function(filename){
   subject_data = read_csv(file = filename) %>% 
     mutate(
@@ -55,7 +55,7 @@ tidy_data = all_subjects %>%
   )
 ```
 
-* Make a spaghetti plot showing observations on each subject over time, and comment on differences between groups.
+* Make a spaghetti plot showing observations on each subject over time.
 
 ```{r}
 tidy_data %>% 
@@ -68,26 +68,30 @@ tidy_data %>%
   )
 ```
 
+* Comments on some differences:
+    * It looks like on average, those in the experimental arm had higher values for observations than those in the control arm.
+    * It also appears as if there is a slight upwards trend over time in observation values for the experimental arm.
+    * By contrast, the control arm seems to have a very slight downwards (or perhaps simply flat) trend over time
+    * Glancing over the plot, the distribution of different subjects seems equally wide for both study arms
+
 ### Problem 2:
 
-```{r}
+Loading the data: 
+
+```{r, message = FALSE}
  hom_data = read_csv("https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv")
 ```
 
-Describe the raw data:
-
-The homicide dataset gives us information about criminal homicides over the past decade in 50 of the largest American cities. Each observation is a unique homicide, with `r dim(hom_data)[1]` total observations and `r dim(hom_data)[2]` variables.
-
-Variables include:
+* Describe the raw data:
+    * The homicide dataset gives us information about criminal homicides over the past decade in 50 of the largest American cities. Each observation is a unique homicide, with `r dim(hom_data)[1]` total observations and `r dim(hom_data)[2]` variables.
+    * Variables include:
 `r names(hom_data)`
-
-The data seems pretty tidy, with each level of a variable part of one dataframe column.
+    * The data seems pretty tidy, with each level of a variable part of one dataframe column.
 
 * Create a city_state variable (e.g. “Baltimore, MD”) and then summarize within cities to obtain the total number of homicides and the number of unsolved homicides (those for which the disposition is “Closed without arrest” or “Open/No arrest”).
 
 ```{r}
 hom_data_summed = hom_data %>% 
-  #filter(!str_detect(disposition, "Closed by arrest")) %>% 
   mutate(
     city_state = str_c(city, ", ", state)
   ) %>% 
@@ -112,7 +116,10 @@ baltimore = hom_data_summed %>%
 prop_unsolved_balt = prop.test(x = baltimore$total_unsolved, n = baltimore$total_homicides)
 
 prop_unsolved_balt_tidy = broom::tidy(prop_unsolved_balt) %>% 
-  select(estimate, conf.low, conf.high)
+  select(estimate, conf.low, conf.high) %>% 
+  knitr::kable(digits = 3)
+
+prop_unsolved_balt_tidy
 ```
 
 * Now run prop.test for each of the cities in your dataset, and extract both the proportion of unsolved homicides and the confidence interval for each. Do this within a “tidy” pipeline, making use of purrr::map, purrr::map2, list columns and  unnest as necessary to create a tidy dataframe with estimated proportions and CIs for each city.
@@ -137,13 +144,16 @@ hom_data_summed_props = hom_data_summed %>%
     ) %>% 
   unnest() %>% 
   select(city_state, estimate, conf.low, conf.high)
+
+#hom_data_summed_props %>% 
+  #knitr::kable(digits = 3)
 ```
 
 * Create a plot that shows the estimates and CIs for each city – check out geom_errorbar for a way to add error bars based on the upper and lower limits. Organize cities according to the proportion of unsolved homicides.
 
 ```{r}
 hom_data_summed_props %>% 
-  ungroup() %>% 
+  ungroup() %>% #could also use nest()?
   mutate(city_state = fct_reorder(city_state, estimate)) %>% 
   ggplot(aes(x = city_state, y = estimate)) + 
   geom_point() +
