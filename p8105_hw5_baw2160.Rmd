@@ -75,6 +75,7 @@ tidy_data %>%
 ```
 
 Describe the raw data:
+
 The homicide dataset gives us information about criminal homicides over the past decade in 50 of the largest American cities. Each observation is a unique homicide, with `r dim(hom_data)[1]` total observations and `r dim(hom_data)[2]` variables.
 
 Variables include:
@@ -82,21 +83,59 @@ Variables include:
 
 The data seems pretty tidy, with each level of a variable part of one dataframe column.
 
-Create a city_state variable (e.g. “Baltimore, MD”) and then summarize within cities to obtain the total number of homicides and the number of unsolved homicides (those for which the disposition is “Closed without arrest” or “Open/No arrest”).
+* Create a city_state variable (e.g. “Baltimore, MD”) and then summarize within cities to obtain the total number of homicides and the number of unsolved homicides (those for which the disposition is “Closed without arrest” or “Open/No arrest”).
 
 ```{r}
-hom_data = hom_data %>% 
+hom_data_summed = hom_data %>% 
+  #filter(!str_detect(disposition, "Closed by arrest")) %>% 
   mutate(
     city_state = str_c(city, ", ", state)
   ) %>% 
   group_by(city_state, disposition) %>% 
   summarize(
     n = n()
+  ) %>% 
+  spread(key = disposition, value = n) %>% 
+  janitor::clean_names() %>% 
+  mutate(
+    total_homicides = closed_without_arrest + open_no_arrest + closed_by_arrest,
+    total_unsolved = closed_without_arrest + open_no_arrest
   ) 
 ```
 
-For the city of Baltimore, MD, use the prop.test function to estimate the proportion of homicides that are unsolved; save the output of prop.test as an R object, apply the broom::tidy to this object and pull the estimated proportion and confidence intervals from the resulting tidy dataframe.
+* For the city of Baltimore, MD, use the prop.test function to estimate the proportion of homicides that are unsolved; save the output of prop.test as an R object, apply the broom::tidy to this object and pull the estimated proportion and confidence intervals from the resulting tidy dataframe.
 
-Now run prop.test for each of the cities in your dataset, and extract both the proportion of unsolved homicides and the confidence interval for each. Do this within a “tidy” pipeline, making use of purrr::map, purrr::map2, list columns and  unnest as necessary to create a tidy dataframe with estimated proportions and CIs for each city.
+```{r}
+baltimore = hom_data_summed %>% 
+  filter(city_state == "Baltimore, MD")  
+
+prop_unsolved = prop.test(x = baltimore$total_unsolved, n = baltimore$total_homicides)
+
+prop_unsolved_tidy = broom::tidy(prop_unsolved) %>% 
+  select(estimate, conf.low, conf.high)
+```
+
+* Now run prop.test for each of the cities in your dataset, and extract both the proportion of unsolved homicides and the confidence interval for each. Do this within a “tidy” pipeline, making use of purrr::map, purrr::map2, list columns and  unnest as necessary to create a tidy dataframe with estimated proportions and CIs for each city.
+
+```{r}
+props_function = function(dataframe, city_name){
+  city = dataframe %>% 
+  filter(city_state == city_name)  
+
+  prop_unsolved = prop.test(x = city$total_unsolved, n = city$total_homicides)
+
+  prop_unsolved_tidy = broom::tidy(prop_unsolved) %>% 
+  select(estimate, conf.low, conf.high)
+  
+  prop_unsolved_tidy
+}
+
+props_all_cities = hom_data_summed %>% 
+  mutate(
+    prop_unsolved = map2(.x = ., .y = city_state, ~props_function(dataframe = .x, city_name = .y))
+    ) %>% 
+  unnest 
+```
+
 
 Create a plot that shows the estimates and CIs for each city – check out geom_errorbar for a way to add error bars based on the upper and lower limits. Organize cities according to the proportion of unsolved homicides.
